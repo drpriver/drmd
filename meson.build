@@ -18,10 +18,10 @@ cc = meson.get_compiler('c')
 m_dep = cc.find_library('m', required: false)
 
 executable(
-  'dmrd', 
-  'drmd_cli.c', 
-  install:true, 
-  c_args:ignore_bogus_deprecations+arches, 
+  'drmd',
+  'drmd_cli.c',
+  install:true,
+  c_args:ignore_bogus_deprecations+arches,
   dependencies:[m_dep]
 )
 
