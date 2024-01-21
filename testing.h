@@ -31,6 +31,7 @@
 #ifdef __clang__
 #pragma clang assume_nonnull begin
 #else
+#define _Null_unspecified
 #define _Nonnull
 #define _Nullable
 #endif
