@@ -13,11 +13,32 @@
 #define DRMD_API static
 #include "drmd.h"
 
+// One day there will be #embed...
+#if (defined(__GNUC__) || defined(__clang__)) && !defined(__IMPORTC__)
+#define EMBEDDED_STYLESHEET 1
+extern const char _readme_stylesheet[] asm("__readme_stylesheet");
+asm(
+    ".global __readme_stylesheet\n"
+    ".align 8\n"
+    "__readme_stylesheet:\n"
+#ifndef README_CSS_PATH
+#define README_CSS_PATH "README.css"
+#endif
+    ".incbin \"" README_CSS_PATH "\"\n"
+    // Guarantee a nul at the end.
+    ".byte 0\n"
+    ".align 4\n"
+);
+#else
+#endif
+
+
 int 
 main(int argc, const char** argv){
     StringView src = {0};
     StringView dst = {0};
     StringView stylesheet = {0};
+    _Bool no_stylesheet = 0;
     ArgToParse pos_args[] = {
         {
             .name = SV("src"),
@@ -40,7 +61,14 @@ main(int argc, const char** argv){
             .dest = ARGDEST(&stylesheet),
             .min_num = 0, .max_num = 1,
             .help = "stylesheet to append to the output",
-        }
+        },
+        #ifdef EMBEDDED_STYLESHEET
+        {
+            .name = SV("--no-stylesheet"),
+            .dest = ARGDEST(&no_stylesheet),
+            .help = "Don't add a <style> tag",
+        },
+        #endif
     };
     enum {HELP, VERSION, FISH};
     ArgToParse early_args[] = {
@@ -146,7 +174,10 @@ main(int argc, const char** argv){
                 fprintf(stderr, "Error writing: %s\n", strerror(errno));
         }
     }
-    if(stylesheet.length){
+    if(no_stylesheet){
+        // do nothing
+    }
+    else if(stylesheet.length){
         FILE* s = fopen(stylesheet.text, "rb");
         if(!s){
             fprintf(stderr, "Unable to read stylesheet '%s': %s\n", stylesheet.text, strerror(errno));
@@ -171,6 +202,11 @@ main(int argc, const char** argv){
             }
             fclose(s);
         }
+    }
+    else {
+        #ifdef EMBEDDED_STYLESHEET
+        fprintf(output, "\n%s\n", _readme_stylesheet);
+        #endif
     }
     fflush(output);
     fclose(output);

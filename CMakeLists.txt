@@ -15,6 +15,7 @@ set(LIBM_LIBRARIES m)
 endif()
 
 add_executable(drmd drmd_cli.c)
+target_compile_definitions(drmd PRIVATE README_CSS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/README.css")
 
 install(TARGETS drmd DESTINATION bin)
 

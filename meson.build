@@ -21,7 +21,8 @@ executable(
   'drmd',
   'drmd_cli.c',
   install:true,
-  c_args:ignore_bogus_deprecations+arches,
+  c_args:ignore_bogus_deprecations+arches
+  + ['-DREADME_CSS_PATH="'+meson.source_root()+'/README.CSS"'],
   dependencies:[m_dep]
 )
 

@@ -47,15 +47,15 @@ WARNING_FLAGS+=-Wassign-enum\
 	-Wcomma
 
 SAN=-fsanitize=address,undefined,nullability
-Bin/drmd_3: drmd_cli.c | Bin Depends
+Bin/drmd_3: drmd_cli.c README.css | Bin Depends
 	$(CC) $< -o $@ -O3 -MT $@ -MMD -MP -MF Depends/$<.3.dep $(WARNING_FLAGS)
-Bin/drmd_1: drmd_cli.c | Bin Depends
+Bin/drmd_1: drmd_cli.c README.css | Bin Depends
 	$(CC) $< -o $@ -O1 -g -MT $@ -MMD -MP -MF Depends/$<.1.dep $(WARNING_FLAGS)
-Bin/drmd_0: drmd_cli.c | Bin Depends
+Bin/drmd_0: drmd_cli.c README.css | Bin Depends
 	$(CC) $< -o $@ -O0 -g -MT $@ -MMD -MP -MF Depends/$<.0.dep $(WARNING_FLAGS)
-Bin/drmd_0_san: drmd_cli.c | Bin Depends
+Bin/drmd_0_san: drmd_cli.c README.css | Bin Depends
 	$(CC) $< -o $@ -O0 -g -MT $@ -MMD -MP -MF Depends/$<.0_san.dep $(WARNING_FLAGS) $(SAN)
-Bin/drmd: drmd_cli.c | Bin Depends
+Bin/drmd: drmd_cli.c README.css | Bin Depends
 	$(CC) $< -o $@ -O3 -MT $@ -MMD -MP -MF Depends/$<.dep $(WARNING_FLAGS)
 Bin/TestDrMd_0: TestDrMd.c | Bin Depends
 	$(CC) $< -o $@ -O0 -g -MT $@ -MMD -MP -MF Depends/$<.0.dep $(WARNING_FLAGS)
