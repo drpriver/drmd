@@ -425,8 +425,36 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
                     }
                 }
             }break;
+            case '~':{
+                if(loc->line_end - firstchar >= 3){
+                    if(firstchar[1] == '~' && firstchar[2] == '~'){
+                        NodeHandle pre = append_node(ctx, parent_handle, NODE_PRE);
+                        if(NodeHandle_eq(pre, INVALID_NODE_HANDLE))
+                            return ERROR_OOM;
+                        advance_row(loc);
+                        for(;loc->cursor != loc->end;){
+                            analyze_line(loc);
+                            firstchar = loc->line_start + loc->nspaces;
+                            if(loc->line_end - firstchar >= 3){
+                                if(firstchar[1] == '~' && firstchar[2] == '~'){
+                                    advance_row(loc);
+                                    state = NONE;
+                                    si = -1;
+                                    break;
+                                }
+                            }
+                            NodeHandle string = append_string(ctx, pre, (StringView){ loc->line_end-loc->line_start, loc->line_start});
+                            if(NodeHandle_eq(string, INVALID_NODE_HANDLE))
+                                return ERROR_OOM;
+                            advance_row(loc);
+                        }
+                        continue;
+                    }
+                }
+                goto lDefault;
+            }
             case '`':{
-                if(loc->line_end - firstchar == 3){
+                if(loc->line_end - firstchar >= 3){
                     if(firstchar[1] == '`' && firstchar[2] == '`'){
                         NodeHandle pre = append_node(ctx, parent_handle, NODE_PRE);
                         if(NodeHandle_eq(pre, INVALID_NODE_HANDLE))
@@ -435,7 +463,7 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
                         for(;loc->cursor != loc->end;){
                             analyze_line(loc);
                             firstchar = loc->line_start + loc->nspaces;
-                            if(loc->line_end - firstchar == 3){
+                            if(loc->line_end - firstchar >= 3){
                                 if(firstchar[1] == '`' && firstchar[2] == '`'){
                                     advance_row(loc);
                                     state = NONE;
@@ -451,9 +479,10 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
                         continue;
                     }
                 }
+                goto lDefault;
             }
-            // fall-through
             default:
+                lDefault:;
                 newstate = PARA;
                 goto after;
             case '|':
@@ -576,11 +605,15 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
             NodeHandle table_row_handle = append_node(ctx, container_handle, NODE_TABLE_ROW);
             if(unlikely(NodeHandle_eq(table_row_handle, INVALID_NODE_HANDLE)))
                 return ERROR_OOM;
+            int n_tds = 0;
             const char* p = firstchar+1;
-            for(;;){
+            for(;;n_tds++){
                 const char* pi = memchr(p, '|', loc->line_end - p);
                 if(!pi){
                     ptrdiff_t diff = loc->line_end - p;
+                    // elide the final empty cell, unless we don't have any cells.
+                    if(!diff && n_tds != 0)
+                        break;
                     NodeHandle content = append_string(ctx, table_row_handle, stripped_view(p, diff));
                     if(unlikely(NodeHandle_eq(content, INVALID_NODE_HANDLE)))
                         return ERROR_OOM;
