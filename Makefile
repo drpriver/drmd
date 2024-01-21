@@ -107,3 +107,9 @@ README.html: README.md README.css | Bin/drmd
 
 .PHONY: all
 .DEFAULT_GOAL:=all
+
+Fuzzing: ; mkdir $@
+Bin/drmd_fuzz: drmd_fuzz.c | Bin
+	$(CC) $< -o $@ -O1 -g -fsanitize=fuzzer,address,undefined -MT $@ -MMD -MP -MF Depends/$<.dep
+fuzz: Bin/drmd_fuzz | Fuzzing
+	$< Fuzzing -fork=4 -only_ascii=1

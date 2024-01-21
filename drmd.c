@@ -320,8 +320,12 @@ drmd_to_html(StringView input, StringView* output){
     MStringBuilder msb = {.allocator = MALLOCATOR};
     err = render_to_html(&ctx, root, &msb);
     if(!err){
-        msb_nul_terminate(&msb);
-        *output = msb_detach_sv(&msb);
+        if(!msb.cursor){
+            msb_destroy(&msb);
+            *output = (StringView){0};
+        }
+        else
+            *output = msb_detach_sv(&msb);
     }
     else {
         msb_destroy(&msb);
@@ -348,7 +352,7 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
         NodeHandle item;
         int indentation;
         enum MDSTATE state;
-    } stack[8];
+    } stack[16];
     int si = -1; // stack index
     NodeHandle container_handle = INVALID_NODE_HANDLE;
     int normal_indent = -1;
@@ -478,9 +482,7 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
                 if(loc->nspaces > stack[si].indentation){
                     si++;
                     if(si == arrlen(stack)){
-                        newstate = PARA;
-                        si = -1;
-                        goto lPARA;
+                        return ERROR_OOM;
                     }
                     struct StackItem* s = &stack[si];
                     assert(si > 0);
@@ -513,9 +515,15 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
                     for(;;){
                         si--;
                         if(si < 0){
-                            newstate = PARA;
-                            si = -1;
-                            goto lPARA;
+                            si = 0;
+                            struct StackItem* s = &stack[si];
+                            s->list = append_node(ctx, parent_handle, newstate==BULLET?NODE_BULLETS:NODE_LIST);
+                            if(unlikely(NodeHandle_eq(s->list, INVALID_NODE_HANDLE)))
+                                return ERROR_OOM;
+                            s->item = INVALID_NODE_HANDLE;
+                            s->indentation = loc->nspaces;
+                            s->state = newstate;
+                            goto after_go_up;
                         }
                         assert(si >= 0);
                         int indent = stack[si].indentation;
@@ -524,9 +532,15 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
                         if(indent == loc->nspaces)
                             break;
                         if(indent < loc->nspaces){
-                            newstate = PARA;
-                            si = -1;
-                            goto lPARA;
+                            si = 0;
+                            struct StackItem* s = &stack[si];
+                            s->list = append_node(ctx, parent_handle, newstate==BULLET?NODE_BULLETS:NODE_LIST);
+                            if(unlikely(NodeHandle_eq(s->list, INVALID_NODE_HANDLE)))
+                                return ERROR_OOM;
+                            s->item = INVALID_NODE_HANDLE;
+                            s->indentation = loc->nspaces;
+                            s->state = newstate;
+                            goto after_go_up;
                         }
                     }
                     struct StackItem* s = &stack[si];
@@ -540,6 +554,7 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
                     }
                 }
             }
+            after_go_up:;
             struct StackItem* s = &stack[si];
             s->item = append_node(ctx, s->list, NODE_LIST_ITEM);
             if(unlikely(NodeHandle_eq(s->item, INVALID_NODE_HANDLE)))
@@ -596,9 +611,16 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
             state = newstate;
             continue;
         }
-        lPARA:;
         assert(newstate == PARA);
-        if(state == PARA || state == NONE || loc->nspaces == normal_indent){
+        if(state == QUOTE){
+            StringView content = stripped_view( loc->line_start + loc->nspaces, (loc->line_end - loc->line_start)-loc->nspaces);
+            NodeHandle new_node_handle = append_string(ctx, container_handle, content);
+            if(unlikely(NodeHandle_eq(new_node_handle, INVALID_NODE_HANDLE)))
+                return ERROR_OOM;
+            advance_row(loc);
+            continue;
+        }
+        if(state == PARA || state == NONE || loc->nspaces == normal_indent || state == TABLE){
             if(state != PARA){
                 container_handle = append_node(ctx, parent_handle, NODE_PARA);
                 if(unlikely(NodeHandle_eq(container_handle, INVALID_NODE_HANDLE)))
@@ -613,20 +635,6 @@ parse_md_node(DrMdContext* ctx, ParseLocation* loc, NodeHandle parent_handle){
             state = newstate;
             continue;
         }
-        // Just allow this for now, it's weird but whatever.
-        #if 0
-        // This is like
-        // - foo
-        //   - hello
-        //   goodbye
-        // It's ambiguous what that goodbye is supposed to be attached to.
-        //
-        if(loc->nspaces <= stack[si].indentation){
-            parser_log_err(ctx, loc->line_start+loc->nspaces, LS("Ambiguous dedent inside a list"));
-            return ERROR_PARSE;
-        }
-        #endif
-        // don't change state for these
         StringView content = stripped_view(loc->line_start + loc->nspaces, (loc->line_end - loc->line_start)-loc->nspaces);
         NodeHandle new_node_handle = append_string(ctx, stack[si].item, content);
         if(unlikely(NodeHandle_eq(new_node_handle, INVALID_NODE_HANDLE)))

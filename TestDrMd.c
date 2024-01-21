@@ -40,6 +40,19 @@ TestFunction(TestMd){
         StringView expected;
     } test_cases[] = {
         {
+            SV(">a\nb\n"),
+            SV("<blockquote>\na\nb</blockquote>\n"),
+        },
+        {
+            SV(
+            "- foo\n"
+            "bar\n"
+            ),
+            SV(
+                "<ul>\n<li>foo</ul>\n<p>bar"
+            ),
+        },
+        {
             SV(
             "- foo\n"
             ),
@@ -105,6 +118,29 @@ TestFunction(TestMd){
             ),
             SV(
                 "<ul>\n<li>foo</ul>\n<h1>hello</h1>\n<ul>\n<li>bar</ul>\n"
+            ),
+        },
+        {
+            SV("|foo\n"
+               "a\n"),
+            SV( "<table>\n<thead>\n<tr>\n<th>foo\n<tbody>\n</table>\n<p>a"),
+        },
+        {
+            SV("  - a\n"
+               "- b\n"),
+            SV(
+                "<ul>\n<li>a</ul>\n"
+                "<ul>\n<li>b</ul>\n"
+              ),
+        },
+        {
+            SV(
+                "+ a\n"
+                "  o b\n"
+                " o c\n"
+            ),
+            SV(
+                "<ul>\n<li>a <ul>\n<li>b</ul>\n</ul>\n<ul>\n<li>c</ul>\n"
             ),
         },
     };
